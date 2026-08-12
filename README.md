@@ -1,4 +1,4 @@
-![ENIC imagem] (docs/images/Enic.jpeg)
+![ENIC imagem](docs/images/Enic.jpeg)
 
 # O que é o ENIC?
 
@@ -40,4 +40,9 @@ Ser o mais leve possível e fácil de utilizar, mantendo apenas recursos necess�
 
 **Aviso importante**: As dependências podem variar dependendo da distro Linux.
 
-Instalação:
+## Instalação:
+
+## Horizontal e Vertical
+
+![Horizontal](docs/images/Programando.jpeg)
+![Vertical](docs/imagens/assembler.jpeg)
