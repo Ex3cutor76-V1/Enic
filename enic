@@ -1,0 +1,572 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use lib 'lib';
+
+use Gtk3 '-init';
+use Enic::Terminal;
+use Scalar::Util qw(refaddr);
+
+# ============================================================
+# Janela principal
+# ============================================================
+
+my $janela = Gtk3::Window->new('toplevel');
+
+$janela->set_title('Enic');
+$janela->set_default_size(800, 500);
+
+# ============================================================
+# Container principal
+# ============================================================
+
+my $area = Gtk3::Box->new('vertical', 0);
+
+$janela->add($area);
+
+# ============================================================
+# Área dos terminais
+# ============================================================
+
+my $area_terminais = Gtk3::Box->new(
+    'vertical',
+    0
+);
+
+$area->pack_start(
+    $area_terminais,
+    1,
+    1,
+    0
+);
+
+# ============================================================
+# Lista de terminais
+# ============================================================
+
+my @terminais;
+
+# ============================================================
+# Terminal atualmente selecionado
+# ============================================================
+
+my $terminal_ativo;
+
+# ============================================================
+# Cria um terminal Enic
+# ============================================================
+
+sub criar_terminal {
+
+    my $terminal = Enic::Terminal->new();
+
+    $terminal->iniciar_bash();
+
+    push @terminais, $terminal;
+
+    $terminal_ativo = $terminal;
+
+    return $terminal;
+}
+
+# ============================================================
+# Menu de contexto
+# ============================================================
+
+sub mostrar_menu {
+
+    my ($widget, $event, $terminal) = @_;
+
+    my $menu = Gtk3::Menu->new();
+
+    # --------------------------------------------------------
+    # Copiar
+    # --------------------------------------------------------
+
+    my $copiar = Gtk3::MenuItem->new_with_label(
+        'Copiar'
+    );
+
+    $copiar->signal_connect(
+        'activate',
+        sub {
+            $widget->copy_clipboard();
+        }
+    );
+
+    # --------------------------------------------------------
+    # Colar
+    # --------------------------------------------------------
+
+    my $colar = Gtk3::MenuItem->new_with_label(
+        'Colar'
+    );
+
+    $colar->signal_connect(
+        'activate',
+        sub {
+            $widget->paste_clipboard();
+        }
+    );
+
+    # --------------------------------------------------------
+    # Separador
+    # --------------------------------------------------------
+
+    my $separador = Gtk3::SeparatorMenuItem->new();
+
+    # --------------------------------------------------------
+    # Split vertical
+    # --------------------------------------------------------
+
+    my $split_vertical = Gtk3::MenuItem->new_with_label(
+        'Split vertical'
+    );
+
+    $split_vertical->signal_connect(
+        'activate',
+        sub {
+            split_vertical($terminal);
+        }
+    );
+
+    # --------------------------------------------------------
+    # Split horizontal
+    # --------------------------------------------------------
+
+    my $split_horizontal = Gtk3::MenuItem->new_with_label(
+        'Split horizontal'
+    );
+
+    $split_horizontal->signal_connect(
+        'activate',
+        sub {
+            split_horizontal($terminal);
+        }
+    );
+
+    # --------------------------------------------------------
+    # Monta o menu
+    # --------------------------------------------------------
+
+    $menu->append($copiar);
+    $menu->append($colar);
+# ------------------------------------------------
+# Selecionar tudo
+# ------------------------------------------------
+
+my $selecionar = Gtk3::MenuItem->new_with_label(
+    'Selecionar tudo'
+);
+
+$selecionar->signal_connect(
+    'activate',
+    sub {
+        $widget->select_all();
+    }
+);
+
+$menu->append($selecionar);
+
+# ------------------------------------------------
+# Limpar terminal
+# ------------------------------------------------
+
+my $limpar = Gtk3::MenuItem->new_with_label(
+    'Limpar terminal'
+);
+
+$limpar->signal_connect(
+    'activate',
+    sub {
+        $widget->reset(1, 1);
+        $widget->grab_focus();
+    }
+);
+
+$menu->append($limpar);
+
+# ------------------------------------------------
+# Separador
+# ------------------------------------------------
+
+    $menu->append($separador);
+    $menu->append($split_vertical);
+    $menu->append($split_horizontal);
+
+    $menu->show_all();
+
+    $menu->popup_at_pointer($event);
+
+    return 1;
+}
+
+# ============================================================
+# Conecta o botão direito do mouse
+# ============================================================
+
+sub conectar_menu {
+
+    my ($terminal) = @_;
+
+    my $widget = $terminal->widget();
+
+    $widget->signal_connect(
+        'button-press-event',
+        sub {
+
+            my ($widget, $event) = @_;
+
+            # ------------------------------------------------
+            # Botão direito
+            # ------------------------------------------------
+
+            if ($event->button == 3) {
+
+                $terminal_ativo = $terminal;
+
+                return mostrar_menu(
+                    $widget,
+                    $event,
+                    $terminal
+                );
+            }
+
+            # ------------------------------------------------
+            # Qualquer clique esquerdo torna o terminal ativo
+            # ------------------------------------------------
+
+            $terminal_ativo = $terminal;
+
+            return 0;
+        }
+    );
+}
+
+# ============================================================
+# Fecha o Enic quando o último Bash termina
+# ============================================================
+
+sub conectar_fechamento {
+
+    my ($terminal) = @_;
+
+    my $widget = $terminal->widget();
+
+    $widget->signal_connect(
+        'child-exited',
+        sub {
+
+            # =================================================
+            # Remove o terminal morto da lista
+            # =================================================
+
+            @terminais = grep {
+                refaddr($_) != refaddr($terminal)
+            } @terminais;
+
+            # =================================================
+            # Se não sobrou nenhum terminal, fecha o Enic
+            # =================================================
+
+            if (scalar(@terminais) == 0) {
+
+                Gtk3::main_quit();
+
+                return;
+            }
+
+            # =================================================
+            # Descobre onde o terminal estava
+            # =================================================
+
+            my $pai = $widget->get_parent();
+
+            # =================================================
+            # Terminal estava dentro de um Split
+            # =================================================
+
+            if ($pai && $pai->isa('Gtk3::Paned')) {
+
+                my $filho1 = $pai->get_child1();
+                my $filho2 = $pai->get_child2();
+
+                my $sobrevivente;
+
+                if (
+                    $filho1 &&
+                    refaddr($filho1) != refaddr($widget)
+                ) {
+                    $sobrevivente = $filho1;
+                }
+                elsif (
+                    $filho2 &&
+                    refaddr($filho2) != refaddr($widget)
+                ) {
+                    $sobrevivente = $filho2;
+                }
+
+# ---------------------------------------------
+# Remove o Paned da área principal
+# ---------------------------------------------
+
+$area_terminais->remove($pai);
+
+# ---------------------------------------------
+# Remove o terminal morto do Paned
+# ---------------------------------------------
+
+$pai->remove($widget);
+
+# ---------------------------------------------
+# Remove o terminal sobrevivente do Paned
+# ---------------------------------------------
+
+if ($sobrevivente) {
+    $pai->remove($sobrevivente);
+}
+
+# ---------------------------------------------
+# Agora o sobrevivente está sem pai
+# ---------------------------------------------
+                if ($sobrevivente) {
+
+                    $area_terminais->pack_start(
+                        $sobrevivente,
+                        1,
+                        1,
+                        0
+                    );
+
+                    $sobrevivente->show();
+                    $sobrevivente->grab_focus();
+
+                    # -----------------------------------------
+                    # Atualiza o terminal ativo
+                    # -----------------------------------------
+
+                    foreach my $t (@terminais) {
+
+                        if (
+                            refaddr($t->widget()) ==
+                            refaddr($sobrevivente)
+                        ) {
+                            $terminal_ativo = $t;
+                            last;
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            # =================================================
+            # Terminal único
+            # =================================================
+
+            Gtk3::main_quit();
+        }
+    );
+}
+# ============================================================
+# Terminal principal
+# ============================================================
+
+my $terminal_principal = criar_terminal();
+
+conectar_menu($terminal_principal);
+conectar_fechamento($terminal_principal);
+
+$area_terminais->pack_start(
+    $terminal_principal->widget(),
+    1,
+    1,
+    0
+);
+
+# ============================================================
+# Split vertical
+#
+# Terminal | Terminal
+# ============================================================
+
+sub split_vertical {
+
+    my ($origem) = @_;
+
+    # --------------------------------------------------------
+    # Por enquanto limitamos a dois terminais.
+    # --------------------------------------------------------
+
+    return if scalar(@terminais) >= 2;
+
+    my $segundo = criar_terminal();
+
+    conectar_menu($segundo);
+    conectar_fechamento($segundo);
+
+    # --------------------------------------------------------
+    # Remove o terminal original da área.
+    # --------------------------------------------------------
+
+    $area_terminais->remove(
+        $origem->widget()
+    );
+
+    # --------------------------------------------------------
+    # Container horizontal:
+    #
+    # Terminal | Terminal
+    # --------------------------------------------------------
+
+    my $paned = Gtk3::Paned->new(
+        'horizontal'
+    );
+
+    $paned->set_position(400);
+
+    $area_terminais->pack_start(
+        $paned,
+        1,
+        1,
+        0
+    );
+
+    # --------------------------------------------------------
+    # Terminal original
+    # --------------------------------------------------------
+
+    $paned->pack1(
+        $origem->widget(),
+        1,
+        0
+    );
+
+    # --------------------------------------------------------
+    # Segundo terminal
+    # --------------------------------------------------------
+
+    $paned->pack2(
+        $segundo->widget(),
+        1,
+        0
+    );
+
+    $paned->show_all();
+
+    # --------------------------------------------------------
+    # Foco no novo terminal
+    # --------------------------------------------------------
+
+    $segundo->widget()->grab_focus();
+
+    $terminal_ativo = $segundo;
+}
+
+# ============================================================
+# Split horizontal
+#
+# Terminal
+# ─────────
+# Terminal
+# ============================================================
+
+sub split_horizontal {
+
+    my ($origem) = @_;
+
+    # --------------------------------------------------------
+    # Por enquanto limitamos a dois terminais.
+    # --------------------------------------------------------
+
+    return if scalar(@terminais) >= 2;
+
+    my $segundo = criar_terminal();
+
+    conectar_menu($segundo);
+    conectar_fechamento($segundo);
+
+    # --------------------------------------------------------
+    # Remove o terminal original
+    # --------------------------------------------------------
+
+    $area_terminais->remove(
+        $origem->widget()
+    );
+
+    # --------------------------------------------------------
+    # Container vertical:
+    #
+    # Terminal
+    # ─────────
+    # Terminal
+    # --------------------------------------------------------
+
+    my $paned = Gtk3::Paned->new(
+        'vertical'
+    );
+
+    $paned->set_position(250);
+
+    $area_terminais->pack_start(
+        $paned,
+        1,
+        1,
+        0
+    );
+
+    # --------------------------------------------------------
+    # Terminal original
+    # --------------------------------------------------------
+
+    $paned->pack1(
+        $origem->widget(),
+        1,
+        0
+    );
+
+    # --------------------------------------------------------
+    # Segundo terminal
+    # --------------------------------------------------------
+
+    $paned->pack2(
+        $segundo->widget(),
+        1,
+        0
+    );
+
+    $paned->show_all();
+
+    # --------------------------------------------------------
+    # Foco no novo terminal
+    # --------------------------------------------------------
+
+    $segundo->widget()->grab_focus();
+
+    $terminal_ativo = $segundo;
+}
+
+# ============================================================
+# Fechamento da janela
+# ============================================================
+
+$janela->signal_connect(
+    'destroy',
+    sub {
+        Gtk3::main_quit();
+    }
+);
+
+# ============================================================
+# Mostra a interface
+# ============================================================
+
+$janela->show_all();
+
+# ============================================================
+# Loop principal GTK
+# ============================================================
+
+Gtk3::main();
