@@ -45,4 +45,5 @@ Ser o mais leve possível e fácil de utilizar, mantendo apenas recursos necess�
 ## Horizontal e Vertical
 
 ![Horizontal](docs/images/Programando.jpeg)
+
 ![Vertical](docs/imagens/assembler.jpeg)
