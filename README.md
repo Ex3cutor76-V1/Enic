@@ -1,3 +1,5 @@
+![ENIC imagem] (docs/images/Enic.jpeg)
+
 # O que é o ENIC?
 
 ENIC é um emulador de terminal feito em perl, com objetivo de ser um emulador de terminal leve e com poucas dependências, utilizando o VTE/GTK3 para fornecer ao emulador a interface gráfica, enquanto seu shell tradicional é o bash.
