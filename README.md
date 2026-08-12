@@ -1,2 +1,41 @@
-# Enic
-Um emulador de terminal feito em perl, com  o foco em leveza.
+# O que é o ENIC?
+
+ENIC é um emulador de terminal feito em perl, como objetivo de ser um emulador de terminal leve e com poucas dependências, utilizando o VTE/GTK3 para fornecer ao emulador a interface gráfica, enquanto seu Shell tradicional é o bash.
+
+## Por que o nome Enic?
+
+O nome "Enic" é em homenagem ao primeiro computador da história da computação, Eniac com a imaginação de uma pergunta de "Como seria um terminal do Eniac se ele tivesse uma tela? E tivesse evoluído com o tempo?"
+
+## Filosofia
+
+Ser o mais leve possível e fácil de utilizar.
+
+## Recursos
+
+- Emulação de terminal através de VTE 2.91;
+- Interface GTK3;
+- Shell bash;
+- Scrollback;
+- Cursor configurável;
+- Fonte IBM Plex Mono 11;
+- Copiar e colar;
+- Menu de contexto;
+- Selecionar tudo;
+- Limpeza de terminal;
+- Split vertical;
+- Split horizontal;
+- Integração com i3 e rofi;
+- Arquivo .desktop;
+- Instalação global através de `/usr/local/bin`;
+
+## Requisitos
+
+* Perl;
+* GTK3;
+* VTE 2.91;
+* Pango;
+* Bash;
+
+!Aviso importante!: As dependências podem variar dependendo da distro Linux.
+
+Instalação:
