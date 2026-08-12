@@ -42,7 +42,11 @@ Ser o mais leve possível e fácil de utilizar, mantendo apenas recursos necess�
 
 ## Instalação
 
+Clonar repositório: `git clone https://github.com/Ex3cutor76-V1/Enic.git`
+Entrar no repositório: `cd Enic/`
+Executar: `sudo ./install.sh`
 
+**Aviso importante**: O arquivo `install.sh` na realidade não instala de fato o terminal, ele só organiza o ambiente para o Enic poder se adaptar melhor ao sistema para fácil acesso do usuário.
 
 ## Horizontal e Vertical
 
