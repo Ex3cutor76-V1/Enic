@@ -40,7 +40,9 @@ Ser o mais leve possível e fácil de utilizar, mantendo apenas recursos necess�
 
 **Aviso importante**: As dependências podem variar dependendo da distro Linux.
 
-## Instalação:
+## Instalação
+
+
 
 ## Horizontal e Vertical
 
