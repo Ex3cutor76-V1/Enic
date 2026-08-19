@@ -38,7 +38,7 @@ $area->pack_start(
     0
 );
 
-# Hash que guarda todos os terminais existentes
+# Array que guarda todos os objetos de terminal existentes
 my @terminais;
 
 # Variável que guarda qual terminal está selecionado
@@ -253,7 +253,7 @@ sub conectar_fechamento {
 # Descobre quem é o processo pai do terminal
            my $pai = $widget->get_parent();
 
-# Verifica se o processo pai é um split
+# Verifica se o widget pai é um container Gtk3::Paned
             if ($pai && $pai->isa('Gtk3::Paned')) {
 
                 my $filho1 = $pai->get_child1();

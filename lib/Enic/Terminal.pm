@@ -25,43 +25,38 @@ sub new {
 
     my $terminal = Vte::Terminal->new();
 
-    # ========================================================
-    # Scrollback
-    # ========================================================
-
+# Scrollback configurado para 2500
     $terminal->set_scrollback_lines(2500);
 
-    # ========================================================
-    # Aparência do terminal
-    # ========================================================
-
+# Define a fonte do terminal
     my $fonte = Pango::FontDescription::from_string(
         'IBM Plex Mono 11'
     );
 
     $terminal->set_font($fonte);
 
+# Determina o fundo como preto
     my $preto = Gtk3::Gdk::RGBA->new(
         0.0, 0.0, 0.0, 1.0
     );
 
+# Define o texto como branco
     my $branco = Gtk3::Gdk::RGBA->new(
         1.0, 1.0, 1.0, 1.0
     );
 
+# Define cores do terminal
     $terminal->set_colors(
         $branco,
         $preto,
         []
     );
 
+# Cursor para piscar e ter formato de bloco
     $terminal->set_cursor_blink_mode('on');
     $terminal->set_cursor_shape('block');
 
-    # ========================================================
-    # Atalhos do terminal
-    # ========================================================
-
+# Atalhos de teclado
     $terminal->signal_connect(
         'key-press-event',
         sub {
@@ -73,31 +68,27 @@ sub new {
             my $ctrl  = $state & ['control-mask'];
             my $shift = $state & ['shift-mask'];
 
-            # ------------------------------------------------
-            # Ctrl + Shift + V
-            # ------------------------------------------------
-
+# Verifica se CTRL + SHIFT + V foi pressionado
             if (
                 $ctrl &&
                 $shift &&
                 defined $key &&
                 $key eq 'V'
             ) {
+# Cola o conteúdo copiado
                 $widget->paste_clipboard();
 
                 return 1;
             }
 
-            # ------------------------------------------------
-            # Ctrl + Shift + C
-            # ------------------------------------------------
-
+# Verifica se CTRL + SHIFT + C foi pressionado
             if (
                 $ctrl &&
                 $shift &&
                 defined $key &&
                 $key eq 'C'
             ) {
+# Copia conteúdo selecionado
                 $widget->copy_clipboard();
 
                 return 1;
@@ -123,16 +114,9 @@ sub iniciar_bash {
 
     my $terminal = $self->{widget};
 
-    # ========================================================
-    # Localiza o diretório raiz do Enic
-    #
-    # Terminal.pm:
-    #   Enic/Terminal.pm
-    #
-    # Projeto:
-    #   ../../enic_prompt.bash
-    # ========================================================
-
+# Localiza o diretório raiz do Enic
+# E obtém o caminho absoluto deste arquivo
+# E sobe três níveis de diretório
     my $arquivo_modulo = abs_path(__FILE__);
 
     die "Não foi possível localizar Terminal.pm\n"
@@ -149,10 +133,7 @@ sub iniciar_bash {
     die "Arquivo de prompt não encontrado: $prompt\n"
         unless -f $prompt;
 
-    # ========================================================
-    # Inicia o Bash
-    # ========================================================
-
+# Inicia o bash interativo dentro do terminal VTE
     $terminal->spawn_sync(
         'default',
         $ENV{HOME},
