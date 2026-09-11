@@ -43,9 +43,6 @@ mkdir -p "$DESKTOP"
 cp "$DIRETORIO_SCRIPT/enic" \
    "$PREFIXO/enic"
 
-cp "$DIRETORIO_SCRIPT/enic_prompt.bash" \
-   "$PREFIXO/enic_prompt.bash"
-
 cp "$DIRETORIO_SCRIPT/script.pl" \
    "$PREFIXO/script.pl"
 
