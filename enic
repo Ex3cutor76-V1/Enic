@@ -1,462 +1,161 @@
 #!/usr/bin/perl
 
-# Regras mais rígidas do Perl
 use strict;
 use warnings;
 
-# Adiciona a pasta lib para encontrar os módulos próprios do projeto
-use lib 'lib';
-
-use Gtk3 '-init';
+use lib qw(./lib);
 use Enic::Terminal;
-use Scalar::Util qw(refaddr);
 
-# Cria uma janela principal da aplicação GTK
-my $janela = Gtk3::Window->new('toplevel');
+use Gtk3 -init;
 
-# Define titulo e tamanho inicial da janela
-$janela->set_title('Enic');
-$janela->set_default_size(800, 500);
+my $window;
+my $main_container;
+my $pane_count = 0;
+my %widget_map;  # Mapeia widget -> {parent, position}
 
-# Cria uma caixa vertical
-my $area = Gtk3::Box->new('vertical', 0);
+sub main {
+    $window = Gtk3::Window->new('toplevel');
+    $window->set_title('Enic - Terminal Emulator');
+    $window->set_default_size(800, 600);
+    $window->signal_connect('destroy', sub { Gtk3::main_quit() });
 
-# Coloca a caixa vertical dentro da janela
-$janela->add($area);
+    $main_container = Gtk3::Box->new('vertical', 0);
+    $window->add($main_container);
 
-# Cria outro container
-my $area_terminais = Gtk3::Box->new(
-    'vertical',
-    0
-);
+    # Cria o primeiro terminal
+    my $primeiro = Enic::Terminal->new();
+    setup_terminal($primeiro);
+    $pane_count = 1;
 
-# Define como a caixa deve se comportar dentro do espaço disponível do container pai
-$area->pack_start(
-    $area_terminais,
-    1,
-    1,
-    0
-);
+    $widget_map{$primeiro->widget()} = { parent => undef, position => 0 };
+    $main_container->pack_start($primeiro->widget(), 1, 1, 0);
+    $window->show_all();
+    $primeiro->iniciar_bash();
 
-# Array que guarda todos os objetos de terminal existentes
-my @terminais;
-
-# Variável que guarda qual terminal está selecionado
-my $terminal_ativo;
-
-# Função de criar terminais
-sub criar_terminal {
-
-# Cria uma instância do módulo Terminal.pm
-    my $terminal = Enic::Terminal->new();
-
-# Inicia o bash (SHELL)
-    $terminal->iniciar_bash();
-
-# Guarda o terminal na lista
-    push @terminais, $terminal;
-
-# Define o terminal como ativo
-    $terminal_ativo = $terminal;
-
-# Retorna ao terminal
-    return $terminal;
+    Gtk3::main();
 }
 
-# Função de menu
-sub mostrar_menu {
-
-# Declara uma função que está preparada para receber informações de um evento
-    my ($widget, $event, $terminal) = @_;
-
-# Cria um menu
-    my $menu = Gtk3::Menu->new();
-
-# Cria a opção "Copiar"
-    my $copiar = Gtk3::MenuItem->new_with_label(
-        'Copiar'
-    );
-
-# Quando o usuário clicar em "copiar" ele copia o texto selecionado
-    $copiar->signal_connect(
-        'activate',
-        sub {
-            $widget->copy_clipboard();
-        }
-    );
-
-# Cria a opção "colar"
-    my $colar = Gtk3::MenuItem->new_with_label(
-        'Colar'
-    );
-
-# Quando o usuário clicar em "colar" ele cola o texto que foi copiado
-    $colar->signal_connect(
-        'activate',
-        sub {
-            $widget->paste_clipboard();
-        }
-    );
-
-# Cria um separador
-    my $separador = Gtk3::SeparatorMenuItem->new();
-
-# Cria o botão de "split vertical"
-    my $split_vertical = Gtk3::MenuItem->new_with_label(
-        'Split vertical'
-    );
-
-
-# Quando o usuário clicar em "split vertical" ele irá chamar uma função que irá criar outro terminal
-# Só que de forma vertical
-    $split_vertical->signal_connect(
-        'activate',
-        sub {
-            split_vertical($terminal);
-        }
-    );
-
-# Cria o botão "Split horizontal"
-    my $split_horizontal = Gtk3::MenuItem->new_with_label(
-        'Split horizontal'
-    );
-
-# Quando o usuário clicar em "split horizontal" ele irá chamar uma função que irá criar outro terminal
-# Só que de forma horizontal
-
-    $split_horizontal->signal_connect(
-        'activate',
-        sub {
-            split_horizontal($terminal);
-        }
-    );
-
-# Monta o menu de "copiar" e "colar"
-    $menu->append($copiar);
-    $menu->append($colar);
-
-# Cria o botão de "selecionar tudo"
-my $selecionar = Gtk3::MenuItem->new_with_label(
-    'Selecionar tudo'
-);
-
-# Quando o usuário clicar em "selecionar tudo" ele irá chamar uma função que irá selecionar tudo que está dentro da janela
-# Do terminal
-$selecionar->signal_connect(
-    'activate',
-    sub {
-        $widget->select_all();
-    }
-);
-
-# Monta o menu "Selecionar tudo"
-$menu->append($selecionar);
-
-# Cria o botão "Limpar terminal"
-my $limpar = Gtk3::MenuItem->new_with_label(
-    'Limpar terminal'
-);
-
-# Quando o usuário clicar em "limpar terminal" ele irá chamar uma função que irá limpar todo o conteúdo que estiver no terminal
-$limpar->signal_connect(
-    'activate',
-    sub {
-        $widget->reset(1, 1);
-        $widget->grab_focus();
-    }
-);
-
-# Monta o menu "Limpar"
-$menu->append($limpar);
-
-# Monta o menu "Separador", "split vertical", "split horizontal"
-    $menu->append($separador);
-    $menu->append($split_vertical);
-    $menu->append($split_horizontal);
-
-# Mostra o menu
-    $menu->show_all();
-
-# Abre o menu exatamente o mouse estiver
-    $menu->popup_at_pointer($event);
-
-    return 1;
-}
-
-# Função recebe um terminal
-sub conectar_menu {
-
+sub setup_terminal {
     my ($terminal) = @_;
-
-# Pega a widget visual do terminal
-    my $widget = $terminal->widget();
-
-# Conecta a um evento após clicar em um botão
-    $widget->signal_connect(
-        'button-press-event',
-
-# Função anônima
-        sub {
-
-# Chama quando ocorrer um clique
-            my ($widget, $event) = @_;
-
-# Se o botão apertado for o direito
-            if ($event->button == 3) {
-
-# Guarda o terminal ativo
-                $terminal_ativo = $terminal;
-
-# Mostra o menu
-                return mostrar_menu(
-                    $widget,
-                    $event,
-                    $terminal
-                );
-            }
-
-            $terminal_ativo = $terminal;
-
-            return 0;
-        }
-    );
-}
-
-# Função para fechar o bash 
-sub conectar_fechamento {
-
-    my ($terminal) = @_;
-
-# Pega o componente existente do widget para conectar eventos nele
-    my $widget = $terminal->widget();
-
-# Registra um evento
-    $widget->signal_connect(
-        'child-exited',
-        sub {
-
-# Remove da lista o terminal cujo o processo bash terminou
-# O refaddr compara a identidade real dos objetos
-            @terminais = grep {
-                refaddr($_) != refaddr($terminal)
-            } @terminais;
-
-# Conta quantos terminais existem e se não sobrou nenhum terminal...
-            if (scalar(@terminais) == 0) {
-
-# Encerra o GTK
-                Gtk3::main_quit();
-
-                return;
-}
-
-# Descobre quem é o processo pai do terminal
-           my $pai = $widget->get_parent();
-
-# Verifica se o widget pai é um container Gtk3::Paned
-            if ($pai && $pai->isa('Gtk3::Paned')) {
-
-                my $filho1 = $pai->get_child1();
-                my $filho2 = $pai->get_child2();
-
-# Variável para guardar o sobrevivente
-                my $sobrevivente;
-
-# Testa o primeiro filho para comparar se ele é diferente do terminal que morreu e faz o mesmo com o segundo filho
-                if (
-                    $filho1 &&
-                    refaddr($filho1) != refaddr($widget)
-                ) {
-                    $sobrevivente = $filho1;
-                }
-                elsif (
-                    $filho2 &&
-                    refaddr($filho2) != refaddr($widget)
-                ) {
-                    $sobrevivente = $filho2;
-                }
-
-# Remove o processo pai da área de terminais
-$area_terminais->remove($pai);
-
-# Remove o terminal morto do paned
-$pai->remove($widget);
-
-# Remove o terminal sobrevivente do paned
-if ($sobrevivente) {
-    $pai->remove($sobrevivente);
-}
-
-# Deixa o terminal sobrevivente sozinho
-                if ($sobrevivente) {
-
-                    $area_terminais->pack_start(
-                        $sobrevivente,
-                        1,
-                        1,
-                        0
-                    );
-
-                    $sobrevivente->show();
-                    $sobrevivente->grab_focus();
-
-# Atualiza o terminal ativo
-                    foreach my $t (@terminais) {
-
-                        if (
-                            refaddr($t->widget()) ==
-                            refaddr($sobrevivente)
-                        ) {
-                            $terminal_ativo = $t;
-                            last;
-                        }
-                    }
-                }
-
-                return;
-}
-
-# Deixa como terminal único
+    
+    $terminal->widget()->signal_connect('child-exited', sub {
+        $pane_count--;
+        if ($pane_count <= 0) {
             Gtk3::main_quit();
         }
-    );
+    });
+
+    $terminal->widget()->signal_connect('button-press-event', sub {
+        my ($widget, $event) = @_;
+        if ($event->button == 3) {
+            show_menu($widget, $event, $terminal);
+            return 1;
+        }
+        return 0;
+    });
 }
 
-# Variável que chama a função para criar o terminal
-my $terminal_principal = criar_terminal();
+sub show_menu {
+    my ($widget, $event, $terminal) = @_;
 
-# Chamam a função para conectar o menu e conectar o fechamento do terminal principal
-conectar_menu($terminal_principal);
-conectar_fechamento($terminal_principal);
+    my $menu = Gtk3::Menu->new();
 
-$area_terminais->pack_start(
-    $terminal_principal->widget(),
-    1,
-    1,
-    0
-);
+    my $copy = Gtk3::MenuItem->new_with_label('Copiar');
+    $copy->signal_connect('activate', sub { $widget->copy_clipboard() });
+    $menu->append($copy);
 
-# Função de split vertical
-sub split_vertical {
+    my $paste = Gtk3::MenuItem->new_with_label('Colar');
+    $paste->signal_connect('activate', sub { $widget->paste_clipboard() });
+    $menu->append($paste);
 
-    my ($origem) = @_;
+    $menu->append(Gtk3::SeparatorMenuItem->new());
 
-# Limita até quantos terminais é possível abrir
-    return if scalar(@terminais) >= 3;
+    my $select = Gtk3::MenuItem->new_with_label('Selecionar tudo');
+    $select->signal_connect('activate', sub { $widget->select_all() });
+    $menu->append($select);
 
-# Variável que chama uma função para criar um segundo terminal
-    my $segundo = criar_terminal();
+    my $clear = Gtk3::MenuItem->new_with_label('Limpar');
+    $clear->signal_connect('activate', sub { $widget->reset(1, 1) });
+    $menu->append($clear);
 
-# Conecta o menu e o fechamento do segundo terminal
-    conectar_menu($segundo);
-    conectar_fechamento($segundo);
+    $menu->append(Gtk3::SeparatorMenuItem->new());
 
-# Remove o terminal original da área
-    $area_terminais->remove(
-        $origem->widget()
-    );
+    unless ($pane_count >= 4) {
+        my $split_v = Gtk3::MenuItem->new_with_label('Split vertical');
+        $split_v->signal_connect('activate', sub {
+            split_pane($terminal, 'vertical');
+        });
+        $menu->append($split_v);
 
-# Container horizontal
-    my $paned = Gtk3::Paned->new(
-        'horizontal'
-    );
-
-    $paned->set_position(400);
-
-    $area_terminais->pack_start(
-        $paned,
-        1,
-        1,
-        0
-    );
-
-# Terminal original
-    $paned->pack1(
-        $origem->widget(),
-        1,
-        0
-    );
-
-# Segundo terminal
-    $paned->pack2(
-        $segundo->widget(),
-        1,
-        0
-    );
-
-    $paned->show_all();
-
-
-# Foca no novo terminal ativo
-    $segundo->widget()->grab_focus();
-
-    $terminal_ativo = $segundo;
-
-}
-
-sub split_horizontal {
-
-    my ($origem) = @_;
-
-# Limita terminais
-    return if scalar(@terminais) >= 3;
-
-    my $segundo = criar_terminal();
-
-    conectar_menu($segundo);
-    conectar_fechamento($segundo);
-
-# Remove o terminal original
-    $area_terminais->remove(
-        $origem->widget()
-    );
-
-# Container vertical
-    my $paned = Gtk3::Paned->new(
-        'vertical'
-    );
-
-    $paned->set_position(250);
-
-    $area_terminais->pack_start(
-        $paned,
-        1,
-        1,
-        0
-    );
-
-# Terminal original
-    $paned->pack1(
-        $origem->widget(),
-        1,
-        0
-    );
-
-# Segundo terminal
-    $paned->pack2(
-        $segundo->widget(),
-        1,
-        0
-    );
-
-    $paned->show_all();
-
-# Foco no novo terminal ativo
-    $segundo->widget()->grab_focus();
-
-    $terminal_ativo = $segundo;
-}
-
-# Fecja a janela após usar "exit" e o bash morrer
-$janela->signal_connect(
-    'destroy',
-    sub {
-        Gtk3::main_quit();
+        my $split_h = Gtk3::MenuItem->new_with_label('Split horizontal');
+        $split_h->signal_connect('activate', sub {
+            split_pane($terminal, 'horizontal');
+        });
+        $menu->append($split_h);
     }
-);
 
-# Mostra a interface da janela
-$janela->show_all();
+    $menu->show_all();
+    $menu->popup_at_pointer($event);
+}
 
-# Loop Principal do GTK
-Gtk3::main();
+sub split_pane {
+    my ($current_terminal, $orientation) = @_;
+
+    if ($pane_count >= 4) {
+        warn "Máximo de 4 terminais!\n";
+        return;
+    }
+
+    my $novo = Enic::Terminal->new();
+    setup_terminal($novo);
+    $pane_count++;
+
+    my $widget_atual = $current_terminal->widget();
+    my $widget_novo = $novo->widget();
+
+    my $paned = $orientation eq 'vertical'
+        ? Gtk3::Paned->new('vertical')
+        : Gtk3::Paned->new('horizontal');
+
+    my $parent_info = $widget_map{$widget_atual};
+    my $parent = $parent_info->{parent};
+    my $position = $parent_info->{position};
+
+    # IMPORTANTE: Remove do container antigo PRIMEIRO
+    if (!$parent) {
+        $main_container->remove($widget_atual);
+    } else {
+        # Remove do paned pai
+        my $old_parent = $widget_atual->get_parent();
+        if ($old_parent) {
+            $old_parent->remove($widget_atual);
+        }
+    }
+
+    # AGORA adiciona ao novo paned (sem conflito de pai)
+    $paned->pack1($widget_atual, 1, 1);
+    $paned->pack2($widget_novo, 1, 1);
+
+    # Adiciona o paned ao seu container pai
+    if (!$parent) {
+        $main_container->pack_start($paned, 1, 1, 0);
+    } else {
+        if ($position == 1) {
+            $parent->pack1($paned, 1, 1);
+        } else {
+            $parent->pack2($paned, 1, 1);
+        }
+    }
+
+    # Atualiza o mapa
+    $widget_map{$paned} = { parent => $parent, position => $position };
+    $widget_map{$widget_atual} = { parent => $paned, position => 1 };
+    $widget_map{$widget_novo} = { parent => $paned, position => 2 };
+
+    $window->show_all();
+    $novo->iniciar_bash();
+}
+
+
+main();
+

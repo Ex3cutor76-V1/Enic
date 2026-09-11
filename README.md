@@ -1,4 +1,4 @@
-![ENIC imagem](docs/images/Enic.jpeg)
+![ENIC imagem](docs/images/terminal.jpeg)
 
 # O que é o ENIC?
 
@@ -50,8 +50,6 @@ sudo ./install.sh
 
 **Aviso importante**: O arquivo `install.sh` não compila e muito menos modifica o sistema de forma invasiva. Ele apenas organiza os arquivos do Enic nos diretórios apropriados e cria os atalhos necessários para facilitar seu acesso e integração no sistema.
 
-## Horizontal e Vertical
+## Split
 
-![Horizontal](docs/images/Programando.jpeg)
-
-![Vertical](docs/images/assembler.jpeg)
+![ENIC imagem](docs/images/split.jpeg)
