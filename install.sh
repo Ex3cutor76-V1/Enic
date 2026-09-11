@@ -28,6 +28,31 @@ fi
 
 DIRETORIO_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Verificação de dependências
+
+if ! command -v perl >/dev/null 2>&1; then
+    printf "${VERMELHO}Erro: Perl não está instalado.${RESET}\n"
+    exit 1
+fi
+
+if ! perl -MGtk3 -e 1 >/dev/null 2>&1; then
+    printf "${VERMELHO}Erro: módulo Perl Gtk3 não encontrado.${RESET}\n"
+    printf "Instale com: sudo apt install libgtk3-perl\n"
+    exit 1
+fi
+
+if ! perl -MGlib::Object::Introspection -e 1 >/dev/null 2>&1; then
+    printf "${VERMELHO}Erro: módulo Perl Glib::Object::Introspection não encontrado.${RESET}\n"
+    printf "Instale com: sudo apt install libglib-object-introspection-perl\n"
+    exit 1
+fi
+
+if ! perl -Mlib="$DIRETORIO_SCRIPT/lib" -MEnic::Terminal -e 1 >/dev/null 2>&1; then
+    printf "${VERMELHO}Erro: Vte ou Pango não encontrados.${RESET}\n"
+    printf "Instale com: sudo apt install libvte-2.91-0 gir1.2-vte-2.91 gir1.2-pango-1.0\n"
+    exit 1
+fi
+
 printf "${AMARELO}Instalando Enic...${RESET}\n"
 echo "Origem: $DIRETORIO_SCRIPT"
 echo "Destino: $PREFIXO"
@@ -43,9 +68,6 @@ mkdir -p "$DESKTOP"
 cp "$DIRETORIO_SCRIPT/enic" \
    "$PREFIXO/enic"
 
-cp "$DIRETORIO_SCRIPT/script.pl" \
-   "$PREFIXO/script.pl"
-
 # Biblotéca perl
 
 rm -rf "$PREFIXO/lib"
@@ -56,7 +78,6 @@ cp -r "$DIRETORIO_SCRIPT/lib" \
 # Permissões do arquivo
 
 chmod 755 "$PREFIXO/enic"
-chmod 755 "$PREFIXO/script.pl"
 
 # Launcher
 

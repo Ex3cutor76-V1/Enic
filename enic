@@ -3,7 +3,8 @@
 use strict;
 use warnings;
 
-use lib qw(./lib);
+use FindBin '$RealBin';
+use lib "$RealBin/lib";
 use Enic::Terminal;
 
 use Gtk3 -init;
