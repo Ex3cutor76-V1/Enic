@@ -38,20 +38,29 @@ sub main {
 
 sub setup_terminal {
     my ($terminal) = @_;
-    
+
     $terminal->widget()->signal_connect('child-exited', sub {
+        my ($widget) = @_;
+
         $pane_count--;
+
+        # Se era o último terminal, encerra o programa
         if ($pane_count <= 0) {
             Gtk3::main_quit();
+            return;
         }
+
+        remover_terminal($widget);
     });
 
     $terminal->widget()->signal_connect('button-press-event', sub {
         my ($widget, $event) = @_;
+
         if ($event->button == 3) {
             show_menu($widget, $event, $terminal);
             return 1;
         }
+
         return 0;
     });
 }
@@ -157,6 +166,107 @@ sub split_pane {
     $novo->iniciar_bash();
 }
 
+sub remover_terminal {
+    my ($widget) = @_;
+
+    my $info = $widget_map{$widget};
+
+    unless ($info) {
+        warn "Não encontrei o terminal no widget_map\n";
+        return;
+    }
+
+    my $paned = $info->{parent};
+
+    # Caso extremamente improvável:
+    # o terminal não está dentro de um Paned.
+    unless ($paned) {
+        $main_container->remove($widget);
+        delete $widget_map{$widget};
+        $widget->destroy();
+        return;
+    }
+
+    my $paned_info = $widget_map{$paned};
+    my $grandparent = $paned_info->{parent};
+    my $paned_position = $paned_info->{position};
+
+    # Descobre qual é o irmão do terminal que morreu
+    my $irmao;
+
+    if ($info->{position} == 1) {
+        $irmao = $paned->get_child2();
+    } else {
+        $irmao = $paned->get_child1();
+    }
+
+    unless ($irmao) {
+        warn "Não encontrei o terminal irmão\n";
+        return;
+    }
+
+    # Remove o terminal morto do Paned
+    $paned->remove($widget);
+
+    # Remove o irmão temporariamente também
+    $paned->remove($irmao);
+
+    # O Paned não é mais necessário
+    if (!$grandparent) {
+
+        # O Paned era o elemento principal
+        $main_container->remove($paned);
+
+        # O irmão passa a ocupar o lugar dele
+        $main_container->pack_start(
+            $irmao,
+            1,
+            1,
+            0
+        );
+
+        # O irmão agora está diretamente no container principal
+        $widget_map{$irmao} = {
+            parent   => undef,
+            position => 0
+        };
+
+    } else {
+
+        # O Paned estava dentro de outro Paned
+        $grandparent->remove($paned);
+
+        if ($paned_position == 1) {
+            $grandparent->pack1(
+                $irmao,
+                1,
+                1
+            );
+        } else {
+            $grandparent->pack2(
+                $irmao,
+                1,
+                1
+            );
+        }
+
+        # O irmão assumiu o lugar do Paned removido
+        $widget_map{$irmao} = {
+            parent   => $grandparent,
+            position => $paned_position
+        };
+    }
+
+    # Remove as referências dos widgets que morreram
+    delete $widget_map{$widget};
+    delete $widget_map{$paned};
+
+    # Destrói os objetos GTK antigos
+    $widget->destroy();
+    $paned->destroy();
+
+    $window->show_all();
+}
 
 main();
 
