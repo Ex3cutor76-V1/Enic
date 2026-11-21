@@ -17,25 +17,24 @@ Glib::Object::Introspection->setup(
     package  => 'Pango',
 );
 
+# Cache das familias instaladas: evita reler o fontconfig a cada split.
+my %FAMILIAS_PANGO;
+
 sub new {
-    my ($class) = @_;
+    my ($class, $config) = @_;
 
     my $terminal = Vte::Terminal->new();
 
-    # Scrollback configurado para 2500
-    $terminal->set_scrollback_lines(2500);
+    # Scrollback definido pelo usuário
+    $terminal->set_scrollback_lines($config->get('scrollback'));
 
-    # Define a fonte do terminal
-    my $fonte = Pango::FontDescription::from_string(
-        'IBM Plex Mono 11'
-    );
+    # Fonte definida pelo usuário, com familia verificada no Pango
+    my $fonte = _resolver_fonte($terminal, $config->get('font'));
 
     $terminal->set_font($fonte);
 
-    # Determina o fundo como preto
-    my $preto = Gtk3::Gdk::RGBA->new(
-        0.0, 0.0, 0.0, 1.0
-    );
+    # Cor de fundo definida pelo usuário
+    my $fundo = _rgba_from_hex($config->get('background'));
 
     # Define o texto como branco
     my $branco = Gtk3::Gdk::RGBA->new(
@@ -45,7 +44,7 @@ sub new {
     # Define cores do terminal
     $terminal->set_colors(
         $branco,
-        $preto,
+        $fundo,
         []
     );
 
@@ -95,7 +94,53 @@ sub new {
 
     return bless {
         widget => $terminal,
+        config => $config,
     }, $class;
+}
+
+# Familias de fonte conhecidas pelo Pango, consultadas uma unica vez.
+sub _familias_disponiveis {
+    my ($terminal) = @_;
+
+    unless (%FAMILIAS_PANGO) {
+        my $retorno = $terminal->get_pango_context()
+            ->get_font_map()
+            ->list_families();
+
+        %FAMILIAS_PANGO = map { lc($_->get_name()) => 1 } @$retorno;
+    }
+
+    return \%FAMILIAS_PANGO;
+}
+
+# Verifica se a familia da fonte existe antes de aplicar.
+sub _resolver_fonte {
+    my ($terminal, $valor) = @_;
+
+    my $fonte   = Pango::FontDescription::from_string($valor);
+    my $familia = lc($fonte->get_family());
+    my $disponiveis = _familias_disponiveis($terminal);
+
+    unless ($disponiveis->{$familia}) {
+        warn "Enic: Fonte '$valor' não encontrada. Usando padrão.\n";
+        $fonte = Pango::FontDescription::from_string('IBM Plex Mono 11');
+    }
+
+    return $fonte;
+}
+
+# Converte '#RRGGBB' para os quatro componentes usados por Gdk::RGBA
+sub _rgba_from_hex {
+    my ($hex) = @_;
+
+    my ($r, $g, $b) = $hex =~ /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/;
+
+    return Gtk3::Gdk::RGBA->new(
+        hex($r) / 255,
+        hex($g) / 255,
+        hex($b) / 255,
+        1.0,
+    );
 }
 
 sub widget {
@@ -108,14 +153,15 @@ sub iniciar_bash {
     my ($self) = @_;
 
     my $terminal = $self->{widget};
+    my $shell = $self->{config}->get('shell');
 
-    # Inicia o bash interativo
-    # Sem --rcfile: usa o ~/.bashrc do usuário e respeita seu PS1
+    # Inicia o shell configurado em modo interativo
+    # Sem --rcfile: respeita os arquivos de inicialização do usuário
     $terminal->spawn_sync(
         'default',
         $ENV{HOME},
         [
-            'bash',
+            $shell,
             '-i'
         ],
         [],

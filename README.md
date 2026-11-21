@@ -16,10 +16,11 @@ Ser o mais leve possível e fácil de utilizar, mantendo apenas recursos necess�
 
 - Emulação de terminal através de VTE 2.91;
 - Interface GTK3;
-- Shell bash;
-- Scrollback;
+- Shell configurável (caminho absoluto);
+- Scrollback configurável;
 - Cursor configurável;
-- Fonte IBM Plex Mono 11;
+- Fonte configurável;
+- Cor de fundo configurável;
 - Copiar e colar;
 - Menu de contexto;
 - Selecionar tudo;
@@ -49,6 +50,30 @@ sudo ./install.sh
 ```
 
 **Aviso importante**: O arquivo `install.sh` não compila e muito menos modifica o sistema de forma invasiva. Ele apenas organiza os arquivos do Enic nos diretórios apropriados e cria os atalhos necessários para facilitar seu acesso e integração no sistema.
+
+## Configuração
+
+As configurações ficam em `~/.config/enic/enic.conf` (ou `$XDG_CONFIG_HOME/enic/enic.conf`). O arquivo é criado automaticamente na primeira execução. Edite com qualquer editor de texto, por exemplo:
+
+```bash
+nano ~/.config/enic/enic.conf
+```
+
+Quatro opções estão disponíveis:
+
+```ini
+font=IBM Plex Mono 11
+shell=/bin/bash
+scrollback=2500
+background=#000000
+```
+
+- `font`: descrição de fonte aceita pelo Pango; a família precisa existir no sistema;
+- `shell`: caminho absoluto para um executável, por exemplo `/bin/bash` ou `/usr/bin/zsh`;
+- `scrollback`: número de linhas, de 0 a 9000;
+- `background`: cor em hexadecimal `#RRGGBB`.
+
+Valores inválidos geram um aviso e são substituídos pelos padrões. Chaves desconhecidas também geram aviso e são ignoradas. As mudanças passam a valer na próxima execução do Enic.
 
 ## Split
 

@@ -5,16 +5,20 @@ use warnings;
 
 use FindBin '$RealBin';
 use lib "$RealBin/lib";
+use Enic::Config;
 use Enic::Terminal;
 
 use Gtk3 -init;
 
+my $config;
 my $window;
 my $main_container;
 my $pane_count = 0;
 my %widget_map;  # Mapeia widget -> {parent, position}
 
 sub main {
+    $config = Enic::Config->new();
+
     $window = Gtk3::Window->new('toplevel');
     $window->set_title('Enic - Terminal Emulator');
     $window->set_default_size(800, 600);
@@ -24,7 +28,7 @@ sub main {
     $window->add($main_container);
 
     # Cria o primeiro terminal
-    my $primeiro = Enic::Terminal->new();
+    my $primeiro = Enic::Terminal->new($config);
     setup_terminal($primeiro);
     $pane_count = 1;
 
@@ -116,7 +120,7 @@ sub split_pane {
         return;
     }
 
-    my $novo = Enic::Terminal->new();
+    my $novo = Enic::Terminal->new($config);
     setup_terminal($novo);
     $pane_count++;
 
